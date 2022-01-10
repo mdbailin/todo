@@ -12,7 +12,7 @@ Here is a simple application for writing todo lists. This app has backend capabi
   ```sh
   ├── README.md
   ├── app.py 
-  ├── migrations (you will fill these in with your own version control)
+  ├── migrations (you will fill these with your own version control)
   └── templates
       ├── index.html
   ```
