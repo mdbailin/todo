@@ -1,0 +1,43 @@
+const descInput = document.getElementById('description');
+document.getElementById('form').onsubmit = function(e) {
+  e.preventDefault();
+  const desc = descInput.value;
+  descInput.value= '';
+  fetch('/todos/create', {
+    method: 'POST',
+    body: JSON.stringify({
+      'description': desc,
+    }),
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(function(response){
+      return response.json();
+  })
+  .then(function(jsonResponse){
+      window.location.reload(true);
+      const liItem = document.createElement('Li');
+      const checkbox = document.createElement('input');
+      const button = document.createElement('button');
+      var x = '&cross;';
+      checkbox.setAttribute('type', 'checkbox');
+      checkbox.setAttribute('data-id', jsonResponse['id']);
+      checkbox.setAttribute('class', 'form-check-input');
+      button.setAttribute('data-id', jsonResponse['id']);
+      button.setAttribute('class', 'buttons');
+      liItem.appendChild(checkbox);
+      liItem.appendChild(button);
+      button.innerHTML = x;
+      liItem.innerText = desc;
+      liItem.prepend(checkbox);
+      liItem.insertAdjacentElement('beforeend', button);
+      button.addEventListener("click", reloadPage);
+      checkbox.addEventListener("change", reloadPage);
+      document.getElementById('todos').appendChild(liItem);
+      document.getElementById('error').className = 'hidden';
+  })
+  .catch(function(e) {
+    console.log(e);
+  })
+}
