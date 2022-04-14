@@ -1,11 +1,11 @@
+from typing import List
 from flask import Flask, url_for, request, redirect, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask.templating import render_template
 from flask_migrate import Migrate
+from datetime import datetime
 import sys
-import json
 
-from sqlalchemy.orm import session
 
 
 
@@ -28,6 +28,7 @@ class TodoList(db.Model):
     default=False)
   todos = db.relationship('Todo', cascade='all,delete', backref='list', lazy='select')
 
+
 #create child schema 
 class Todo(db.Model):
     __tablename__ = 'todos'
@@ -39,6 +40,14 @@ class Todo(db.Model):
 
     def __repr__(self):
         return f'<Todo {self.id} {self.description}>'
+
+def format_todo(event):
+    return {
+        "description": event.description,
+        "id": event.id,
+        "completed": event.completed,
+        "list_id": event.list_id
+    }
 
 
 @app.route('/lists/create', methods=['POST'])
@@ -144,10 +153,8 @@ def remove_todo(button_id):
     db.session.close
   return redirect(url_for('index'))
 
-
-
 #method to render index.html template
-@app.route('/lists/<list_id>')
+@app.route('/lists/<list_id>', methods=['GET'])
 def get_list_todos(list_id):
     global GLOBAL_ID
     GLOBAL_ID = list_id
@@ -158,7 +165,18 @@ def get_list_todos(list_id):
     .all()
     )
 
-@app.route('/')
+#PATCH: edit an existing to-do
+@app.route('/todos/<todo_id>', methods=['PATCH'])
+def update_todo(todo_id):
+  request_params = request.get_json()
+  event = Todo.query.get_or_404(todo_id)
+  formatted_event = format_todo(event)
+  description = request_params['description']
+  formatted_event.update(dict(description = description))
+  db.session.commit()
+  return {'todo': 'patched'}
+
+@app.route('/', methods=['GET'])
 def index():
   return redirect(url_for('get_list_todos', list_id=1))
     
