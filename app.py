@@ -169,12 +169,12 @@ def get_list_todos(list_id):
 @app.route('/todos/<todo_id>', methods=['PATCH'])
 def update_todo(todo_id):
   request_params = request.get_json()
-  event = Todo.query.get_or_404(todo_id)
+  event = db.session.query(Todo).filter_by(id=todo_id).first()
   formatted_event = format_todo(event)
   description = request_params['description']
   formatted_event.update(dict(description = description))
   db.session.commit()
-  return {'todo': 'patched'}
+  return formatted_event
 
 @app.route('/', methods=['GET'])
 def index():
