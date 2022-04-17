@@ -1,23 +1,152 @@
-from typing import List
-from flask import Flask, url_for, request, redirect, jsonify, abort
+from importlib.metadata import requires
+from flask import Flask, url_for, request, redirect, jsonify, abort, session, _request_ctx_stack
 from flask_sqlalchemy import SQLAlchemy
 from flask.templating import render_template
 from flask_migrate import Migrate
 from datetime import datetime
+from os import environ as env
+from urllib.parse import quote_plus, urlencode
+from authlib.integrations.flask_client import OAuth
+from dotenv import find_dotenv, load_dotenv
 import sys
+import json
+from six.moves.urllib.request import urlopen
+from functools import wraps
+from flask_cors import cross_origin
+from jose import jwt
 
+app = Flask(__name__)
 
-
+ENV_FILE = find_dotenv()
+if ENV_FILE:
+    load_dotenv(ENV_FILE)
 
 GLOBAL_ID = 1
 
+#authentication
+app.secret_key = env.get("APP_SECRET_KEY")
+ALGORITHMS = ["RS256"]
+
+oauth = OAuth(app)
+oauth.register(
+    "auth0",
+    client_id=env.get("AUTH0_CLIENT_ID"),
+    client_secret=env.get("AUTH0_CLIENT_SECRET"),
+    access_token_url='https://dev-lzgwqs5u.us.auth0.com/oauth/token',
+    authorize_url='https://dev-lzgwqs5u.us.auth0.com/authorize',
+    client_kwargs={
+        "scope": "openid profile email",
+    },
+    server_metadata_url=f'https://{env.get("AUTH0_DOMAIN")}/.well-known/openid-configuration'
+)
+
 #create app instance, config, db instance, and migrate instance
-app = Flask(__name__)
+#set up database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://matthewbailin@localhost:5432/todo_db'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
+# Error handler
+class AuthError(Exception):
+    def __init__(self, error, status_code):
+        self.error = error
+        self.status_code = status_code
 
+@app.errorhandler(AuthError)
+def handle_auth_error(ex):
+    response = jsonify(ex.error)
+    response.status_code = ex.status_code
+    return response
+
+def get_token_auth_header():
+    """Obtains the Access Token from the Authorization Header
+    """
+    auth = request.headers.get("Authorization", None)
+    if not auth:
+        raise AuthError({"code": "authorization_header_missing",
+                        "description":
+                            "Authorization header is expected"}, 401)
+
+    parts = auth.split()
+
+    if parts[0].lower() != "bearer":
+        raise AuthError({"code": "invalid_header",
+                        "description":
+                            "Authorization header must start with"
+                            " Bearer"}, 401)
+    elif len(parts) == 1:
+        raise AuthError({"code": "invalid_header",
+                        "description": "Token not found"}, 401)
+    elif len(parts) > 2:
+        raise AuthError({"code": "invalid_header",
+                        "description":
+                            "Authorization header must be"
+                            " Bearer token"}, 401)
+
+    token = parts[1]
+    return token
+
+def requires_auth(f):
+    """Determines if the Access Token is valid
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = get_token_auth_header()
+        jsonurl = urlopen("https://"+env.get("AUTH0_DOMAIN")+"/.well-known/jwks.json")
+        jwks = json.loads(jsonurl.read())
+        unverified_header = jwt.get_unverified_header(token)
+        rsa_key = {}
+        for key in jwks["keys"]:
+            if key["kid"] == unverified_header["kid"]:
+                rsa_key = {
+                    "kty": key["kty"],
+                    "kid": key["kid"],
+                    "use": key["use"],
+                    "n": key["n"],
+                    "e": key["e"]
+                }
+        if rsa_key:
+            try:
+                payload = jwt.decode(
+                    token,
+                    rsa_key,
+                    algorithms=ALGORITHMS,
+                    audience=env.get("AUTH0_AUDIENCE"),
+                    issuer="https://"+env.get("AUTH0_DOMAIN")+"/"
+                )
+            except jwt.ExpiredSignatureError:
+                raise AuthError({"code": "token_expired",
+                                "description": "token is expired"}, 401)
+            except jwt.JWTClaimsError:
+                raise AuthError({"code": "invalid_claims",
+                                "description":
+                                    "incorrect claims,"
+                                    "please check the audience and issuer"}, 401)
+            except Exception:
+                raise AuthError({"code": "invalid_header",
+                                "description":
+                                    "Unable to parse authentication"
+                                    " token."}, 401)
+
+            _request_ctx_stack.top.current_user = payload
+            return f(*args, **kwargs)
+        raise AuthError({"code": "invalid_header",
+                        "description": "Unable to find appropriate key"}, 401)
+    return decorated
+
+def requires_scope(required_scope):
+    """Determines if the required scope is present in the Access Token
+    Args:
+        required_scope (str): The scope required to access the resource
+    """
+    token = get_token_auth_header()
+    unverified_claims = jwt.get_unverified_claims(token)
+    if unverified_claims.get("scope"):
+            token_scopes = unverified_claims["scope"].split()
+            for token_scope in token_scopes:
+                if token_scope == required_scope:
+                    return True
+    return False
 
 #create parent schema 
 class TodoList(db.Model):
@@ -41,6 +170,17 @@ class Todo(db.Model):
     def __repr__(self):
         return f'<Todo {self.id} {self.description}>'
 
+@app.route("/login")
+def login():
+    return oauth.auth0.authorize_redirect(
+        redirect_uri=url_for("callback", _external=True)
+    )
+@app.route("/callback", methods=["GET", "POST"])
+def callback():
+    token = oauth.auth0.authorize_access_token()
+    session["user"] = token
+    print(token["id_token"])
+    return redirect(url_for('get_list_todos', list_id=70))
 def format_todo(event):
     return {
         "description": event.description,
@@ -70,10 +210,26 @@ def create_todo_list():
       abort (400)
   else:
       return jsonify({name: list.name})
+  
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(
+        "https://" + env.get("AUTH0_DOMAIN")
+        + "/v2/logout?"
+        + urlencode(
+            {
+                "returnTo": url_for("get_list_todos", list_id=70, _external=True),
+                "client_id": env.get("AUTH0_CLIENT_ID"),
+            },
+            quote_via=quote_plus,
+        )
+    )
 
 
 #route, POST wrapper over create_todo() method, try/catch block in case POST fails
 @app.route('/todos/create', methods=['POST'])
+# @requires_auth('create:todo')
 def create_todo():
   error = False
   body = {}
@@ -178,5 +334,5 @@ def update_todo(todo_id):
 
 @app.route('/', methods=['GET'])
 def index():
-  return redirect(url_for('get_list_todos', list_id=1))
+  return redirect(url_for('login'))
     
