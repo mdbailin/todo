@@ -1,5 +1,7 @@
 from importlib.metadata import requires
 from pickle import GLOBAL
+from unittest import result
+from urllib import response
 from flask import Flask, url_for, request, redirect, jsonify, abort, session, _request_ctx_stack
 from flask_sqlalchemy import SQLAlchemy
 from flask.templating import render_template
@@ -21,6 +23,16 @@ from flask_cors import CORS
 def create_app(test_config=None):
   app = Flask(__name__)
   CORS(app)
+  app.config['PROPAGATE_EXCEPTIONS'] = True
+
+  @app.after_request
+  def after_request(response):
+    response.headers.add('Access-Control-Allow-Headers',
+                          'Content-Type,Authorization,true')
+    response.headers.add('Access-Control-Allow-Methods',
+                          'GET,PATCH,POST,DELETE,OPTIONS')
+
+    return response
 
   @app.errorhandler(AuthError)
   def handle_auth_error(ex):
@@ -34,7 +46,6 @@ def create_app(test_config=None):
                           'Content-Type,Authorization,true')
     response.headers.add('Access-Control-Allow-Methods',
                           'GET,PATCH,POST,DELETE,OPTIONS')
-    print(response)
     return response
 
   ENV_FILE = find_dotenv()
@@ -50,6 +61,7 @@ def create_app(test_config=None):
       "auth0",
       client_id=env.get("AUTH0_CLIENT_ID"),
       client_secret=env.get("AUTH0_CLIENT_SECRET"),
+      api_base_url='https://dev-lzgwqs5u.us.auth0.com',
       access_token_url='https://dev-lzgwqs5u.us.auth0.com/oauth/token',
       authorize_url='https://dev-lzgwqs5u.us.auth0.com/authorize',
       client_kwargs={
@@ -89,14 +101,15 @@ def create_app(test_config=None):
   @app.route("/login")
   def login():
       return oauth.auth0.authorize_redirect(
-          redirect_uri=url_for("callback", _external=True)
+          redirect_uri=url_for("callback", _external=True),
+          audience=env.get("AUTH0_AUDIENCE")
       )
   @app.route("/callback", methods=["GET", "POST"])
   def callback():
       token = oauth.auth0.authorize_access_token()
       session["user"] = token
       # print(session["user"]["access_token"])
-      # token['id_token'] = env.get('ADMIN_JWT')
+      print(token)
       return redirect(url_for('get_list_todos', list_id=70))
       
   def format_todo(event):
@@ -109,7 +122,7 @@ def create_app(test_config=None):
 
 
   @app.route('/lists/create', methods=['POST'])
-  # @requires_auth('create: todolist')
+  @requires_auth('create: todolist')
   def create_todo_list():
     list_error = False
     body = {}
@@ -229,10 +242,12 @@ def create_app(test_config=None):
 
   #method to render index.html template
   @app.route('/lists/<list_id>', methods=['GET'])
+  # @cross_origin(headers=['Content-Type', 'Authorization'])
+  # @requires_auth('get: todolist')
   def get_list_todos(list_id):
+      # print(request.headers["authorization"])
       global GLOBAL_ID
       GLOBAL_ID = list_id
-      print("global id is", GLOBAL_ID)
       return render_template(
         'index.html', 
         lists = TodoList.query.all(),
