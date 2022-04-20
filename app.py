@@ -1,5 +1,6 @@
 from importlib.metadata import requires
 from pickle import GLOBAL
+import requests
 from unittest import result
 from urllib import response
 from flask import Flask, url_for, request, redirect, jsonify, abort, session, _request_ctx_stack
@@ -39,14 +40,6 @@ def create_app(test_config=None):
       response = jsonify(ex.error)
       response.status_code = ex.status_code
       return response
-
-  @app.after_request
-  def after_request(response):
-    response.headers.add('Access-Control-Allow-Headers',
-                          'Content-Type,Authorization,true')
-    response.headers.add('Access-Control-Allow-Methods',
-                          'GET,PATCH,POST,DELETE,OPTIONS')
-    return response
 
   ENV_FILE = find_dotenv()
   if ENV_FILE:
@@ -108,8 +101,11 @@ def create_app(test_config=None):
   def callback():
       token = oauth.auth0.authorize_access_token()
       session["user"] = token
-      # print(session["user"]["access_token"])
-      print(token)
+      # access_token = session["user"]["access_token"]
+      # HEADERS = {'Authorization': 'bearer {}'.format(access_token)}
+      # session["headers"] = HEADERS
+      session["jwt"] = token["access_token"]
+      
       return redirect(url_for('get_list_todos', list_id=70))
       
   def format_todo(event):
@@ -122,7 +118,7 @@ def create_app(test_config=None):
 
 
   @app.route('/lists/create', methods=['POST'])
-  @requires_auth('create: todolist')
+  # @requires_auth('create: todolist')
   def create_todo_list():
     list_error = False
     body = {}
@@ -243,7 +239,7 @@ def create_app(test_config=None):
   #method to render index.html template
   @app.route('/lists/<list_id>', methods=['GET'])
   # @cross_origin(headers=['Content-Type', 'Authorization'])
-  # @requires_auth('get: todolist')
+  @requires_auth('get: todolist')
   def get_list_todos(list_id):
       # print(request.headers["authorization"])
       global GLOBAL_ID
