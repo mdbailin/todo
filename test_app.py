@@ -1,0 +1,1 @@
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://matthewbailin@localhost:5432/todo_db_test'

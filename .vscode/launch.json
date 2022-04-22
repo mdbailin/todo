@@ -1,34 +1,48 @@
 {
-    "configurations": [
-        {
-            "type": "aws-sam",
-            "request": "direct-invoke",
-            "name": "to_do_app:app.after_request (python3.9)",
-            "invokeTarget": {
-                "target": "code",
-                "projectRoot": "${workspaceFolder}/",
-                "lambdaHandler": "app.after_request"
-            },
-            "lambda": {
-                "runtime": "python3.9",
-                "payload": {},
-                "environmentVariables": {}
-            }
-        },
-        {
-            "type": "aws-sam",
-            "request": "direct-invoke",
-            "name": "to_do_app:app.update_event (python3.9)",
-            "invokeTarget": {
-                "target": "code",
-                "projectRoot": "${workspaceFolder}/",
-                "lambdaHandler": "app.update_event"
-            },
-            "lambda": {
-                "runtime": "python3.9",
-                "payload": {},
-                "environmentVariables": {}
-            }
-        }
-    ]
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "aws-sam",
+      "request": "direct-invoke",
+      "name": "to_do_app:app.after_request (python3.9)",
+      "invokeTarget": {
+        "target": "code",
+        "projectRoot": "${workspaceFolder}/",
+        "lambdaHandler": "app.after_request"
+      },
+      "lambda": {
+        "runtime": "python3.9",
+        "payload": {},
+        "environmentVariables": {}
+      }
+    },
+    {
+      "type": "aws-sam",
+      "request": "direct-invoke",
+      "name": "to_do_app:app.update_event (python3.9)",
+      "invokeTarget": {
+        "target": "code",
+        "projectRoot": "${workspaceFolder}/",
+        "lambdaHandler": "app.update_event"
+      },
+      "lambda": {
+        "runtime": "python3.9",
+        "payload": {},
+        "environmentVariables": {}
+      }
+    }
+  ]
 }
