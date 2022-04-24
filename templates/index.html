@@ -58,7 +58,9 @@
             <li>
               <a href="/lists/{{list.id}}"><input class="list-check-completed" data-id="{{list.id}}" type="checkbox" onchange="reloadPage()" {% if list.completed %} checked {% endif %}/>
                 {{list.name}}</a>
+                {% if list.id != 70 %}
               <button class="list-buttons" data-id="{{list.id}}" onclick="reloadPage()">&cross;</button>
+                {% endif %}
             </li>
             {% endfor %}
           </ul>
