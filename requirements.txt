@@ -3,7 +3,7 @@ Authlib==1.0.1
 certifi==2021.10.8
 cffi==1.15.0
 charset-normalizer==2.0.12
-click==8.1.2
+click<8.0
 cryptography==36.0.2
 ecdsa==0.17.0
 Flask==1.1.4
