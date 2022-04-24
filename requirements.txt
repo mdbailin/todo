@@ -28,3 +28,4 @@ SQLAlchemy==1.4.35
 urllib3==1.26.9
 Werkzeug==2.1.1
 zipp==3.8.0
+flask._compat
