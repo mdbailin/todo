@@ -8,7 +8,7 @@ db = SQLAlchemy()
 
 def setup_db(app):
     '''binds a flask application and a SQLAlchemy service'''
-    app.config["SQLALCHEMY_DATABASE_URI"] = 'postgres://iwbylbgtfroedm:29822363e7f1a1cef8cccab43c56d8f70a22fe40357b1c4fc8b10d7c06d9569b@ec2-3-229-252-6.compute-1.amazonaws.com:5432/d25lvat7rcgfl1'
+    app.config["SQLALCHEMY_DATABASE_URI"] = 'postgres://iwbylbgtfroedm:29822363e7f1a1cef8cccab43c56d8f70a22fe40357b1c4fc8b10d7c06d9569b@ec2-3-229-252-6.compute-1.amazonaws.com:5432/d25lvat7rcgfl1'.replace("://", "ql://", 1)
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.app = app
     db.init_app(app)
