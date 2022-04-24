@@ -1,4 +1,3 @@
-from importlib.metadata import requires
 from pickle import GLOBAL
 from unittest import result
 from urllib import response
@@ -27,6 +26,8 @@ def create_app(test_config=None):
   setup_db(app)
   CORS(app)
   header = None
+
+  GLOBAL_ID = 70
 
   @app.after_request
   def after_request(response):
@@ -113,17 +114,17 @@ def create_app(test_config=None):
     list_error = False
     body = {}
     try:
-      name = request.get_json()['name']
+      body = request.get_json()
+      name = body['name']
       list = (TodoList(name=name))
       list.insert()
-      body['name'] = list.name
     except:
       list_error = True
       print(sys.exc_info())
     if list_error:
       abort (422)
     else:
-      return jsonify({name: list.name}), 200
+      return jsonify({'name': name}), 200
     
   #route, POST wrapper over create_todo() method, try/catch block in case POST fails
   @app.route('/todos/create', methods=['POST'])
@@ -132,7 +133,10 @@ def create_app(test_config=None):
     error = False
     body = {}
     try:
-      list_num = GLOBAL_ID
+      if GLOBAL_ID is None:
+        list_num = request.get_json['list_id']
+      else:
+        list_num = GLOBAL_ID
       description = request.get_json()['description']
       todo = (Todo(description=description, completed=False, list_id=list_num))
       todo.insert()
@@ -216,24 +220,51 @@ def create_app(test_config=None):
   def get_list_todos(list_id):
       global GLOBAL_ID
       GLOBAL_ID = list_id
-      return render_template(
-        'index.html', 
-        lists = TodoList.query.all(),
-        active_list=TodoList.query.get(list_id),
-        todos=Todo.query.filter_by(list_id=list_id).order_by('id').all()
-      ), 200
+      if TodoList.query.get(list_id) is None:
+        return jsonify({
+          'success': False,
+          'error': 404,
+          'message': 'Not found'
+        }), 404
+      else:
+        return render_template(
+          'index.html', 
+          lists = TodoList.query.all(),
+          active_list=TodoList.query.get(list_id),
+          todos=Todo.query.filter_by(list_id=list_id).order_by('id').all()
+        ), 200
+
+  #GET: get an existing to-do
+  @app.route('/todos/<todo_id>', methods=['GET'])
+  def get_todo(todo_id):
+    try:
+      if Todo.query.get(todo_id) is None:
+        return jsonify({
+          'success': False,
+          'error': 404,
+          'message': 'Not found'
+        }), 404
+      else:
+        event = Todo.query.get(todo_id)
+        formatted_event = format_todo(event)
+        return formatted_event
+    except Exception as e:
+      print(e)
+      abort(403)
+
 
   #PATCH: edit an existing to-do
   @app.route('/todos/<todo_id>', methods=['PATCH'])
   @requires_auth('update: todo')
-  def update_todo(todo_id):
+  def update_todo(jwt, todo_id):
     try:
-      request_params = request.get_json()
-      event = Todo.filter_by(id=todo_id).first()
-      formatted_event = format_todo(event)
-      event.description = request_params['description']
-      event.update()
-      return formatted_event
+      body = request.get_json()
+      todo = Todo.query.filter(Todo.id == todo_id).one_or_none()
+      description = body.get('description')
+      todo.description = description
+      todo.update()
+      formatted_todo = format_todo(todo)
+      return formatted_todo
     except Exception as e:
         print(e)
         abort(403)
